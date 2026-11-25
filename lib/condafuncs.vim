@@ -9,6 +9,31 @@ def EnvName(prefix: string): string
     return prefix ==# g:conda_base_prefix ? "base" : fnamemodify(prefix, ":t")
 enddef
 
+def EnvBinPaths(prefix: string): list<string>
+    if prefix ==# ''
+        return []
+    endif
+    if has('win32')
+        return [prefix, prefix .. "\\Library\\mingw-w64\\bin",
+                \ prefix .. "\\Library\\usr\\bin", prefix .. "\\Library\\bin",
+                \ prefix .. "\\Scripts", prefix .. "\\bin",
+                \ prefix .. "\\condabin"]
+    endif
+    return [prefix .. "/bin"]
+enddef
+
+def PushEnv(prefix: string)
+    var shlvl = str2nr($CONDA_SHLVL)
+    if shlvl > 0 && g:conda_current_prefix !=# ''
+                \ && g:conda_current_prefix !=# prefix
+        add(g:conda_prefix_stack, g:conda_current_prefix)
+        setenv('CONDA_PREFIX_' .. len(g:conda_prefix_stack), g:conda_current_prefix)
+        $CONDA_SHLVL = string(len(g:conda_prefix_stack) + 1)
+    elseif shlvl == 0
+        $CONDA_SHLVL = '1'
+    endif
+enddef
+
 def BasePrefix(): string
     if $CONDA_EXE !=# ''
         var dir = fnamemodify(fnamemodify($CONDA_EXE, ":h"), ":h")
@@ -123,6 +148,18 @@ def Init()
     if exists('g:conda_base_prefix') && exists('g:conda_envs')
         return
     endif
+    if !exists('g:conda_prefix_stack')
+        g:conda_prefix_stack = []
+        var shlvl = str2nr($CONDA_SHLVL)
+        if shlvl > 1
+            for i in range(1, shlvl - 1)
+                var prev = getenv('CONDA_PREFIX_' .. i)
+                if prev !=# ''
+                    add(g:conda_prefix_stack, prev)
+                endif
+            endfor
+        endif
+    endif
     var base = BasePrefix()
     if base ==# ''
         # Without a base prefix the PATH cannot be maintained; ask conda.
@@ -173,8 +210,9 @@ export def SetEnvVariablesWin(env: string, prefix: string)
 
     # Remove old paths
     var path_lst = split($PATH, ';')
-    var path_lst_cleaned = path_lst
-                \->filter('stridx(v:val, g:conda_current_prefix) != 0')
+    var old_paths = EnvBinPaths(g:conda_current_prefix)
+    var path_lst_cleaned = empty(old_paths) ? path_lst
+                \ : path_lst->filter((_, v) => index(old_paths, v) == -1)
 
     # Add new paths
     var path1 = prefix .. "\\Library\\mingw-w64\\bin"
@@ -243,8 +281,9 @@ export def SetEnvVariables(env: string, prefix: string)
     $CONDA_PROMPT_MODIFIER = $"({env})"
     $CONDA_PREFIX = prefix
 
-    # Remove old path (g:conda_current_prefix)
+    # Remove the paths added for g:conda_current_prefix
     var path_lst = split($PATH, ':')
+    var old_paths = EnvBinPaths(g:conda_current_prefix)
     # The following filtering may not be needed because for MacOSX and Linux
     # conda creates only ONE folder and not 200000 like in Windows.
     # You could simply cherry-pick
@@ -253,8 +292,8 @@ export def SetEnvVariables(env: string, prefix: string)
     #   remove(path_lst, index(path_lst, old_path))
     #
     # and use path_lst = [new_path] + path_lst_cleaned
-    var path_lst_cleaned = path_lst
-                \->filter('stridx(v:val, g:conda_current_prefix) != 0')
+    var path_lst_cleaned = empty(old_paths) ? path_lst
+                \ : path_lst->filter((_, v) => index(old_paths, v) == -1)
 
     # Add new path (prefix)
     var new_path = prefix .. "/bin"
@@ -289,7 +328,10 @@ def CondaActivateUser(env: string)
 
     if !has_key(prefixes, env)
         echo $"{env} environment not found."
-    elseif has('win32')
+        return
+    endif
+    PushEnv(prefixes[env])
+    if has('win32')
         SetEnvVariablesWin(env, prefixes[env])
     else
         SetEnvVariables(env, prefixes[env])
@@ -300,6 +342,7 @@ def CondaActivatePopupCallback(id: number, env_idx: number)
     # Callback of the popup menu.
     var target_prefix = g:conda_prefixes[env_idx - 1]
     var target_env = EnvName(target_prefix)
+    PushEnv(target_prefix)
     if has('win32')
         SetEnvVariablesWin(target_env, target_prefix)
     else
@@ -325,6 +368,45 @@ export def CondaActivate(...env: list<string>)
     else
         CondaActivateUser(env[0])
     endif
+enddef
+
+export def CondaDeactivate()
+    Init()
+    # Like conda deactivate: silent when no environment is active.
+    if str2nr($CONDA_SHLVL) == 0 || g:conda_current_prefix ==# ''
+        return
+    endif
+
+    var sep = has('win32') ? ';' : ':'
+    var old_paths = EnvBinPaths(g:conda_current_prefix)
+    var path_lst = split($PATH, sep)
+    $PATH = join(path_lst->filter((_, v) => index(old_paths, v) == -1), sep)
+
+    setenv('CONDA_DEFAULT_ENV', v:null)
+    setenv('CONDA_PROMPT_MODIFIER', v:null)
+    setenv('CONDA_PREFIX', v:null)
+
+    if empty(g:conda_prefix_stack)
+        $CONDA_SHLVL = '0'
+        g:conda_current_env = ''
+        g:conda_current_prefix = ''
+        if exists('#User#CondaEnvActivated')
+            doautocmd User CondaEnvActivated
+        endif
+        return
+    endif
+
+    var target = remove(g:conda_prefix_stack, -1)
+    setenv('CONDA_PREFIX_' .. (len(g:conda_prefix_stack) + 1), v:null)
+    # SetEnvVariables filters the paths of g:conda_current_prefix, which are
+    # already gone; it then prepends the paths of the restored environment.
+    g:conda_current_prefix = target
+    if has('win32')
+        SetEnvVariablesWin(EnvName(target), target)
+    else
+        SetEnvVariables(EnvName(target), target)
+    endif
+    $CONDA_SHLVL = string(len(g:conda_prefix_stack) + 1)
 enddef
 
 export def CondaComplete(arglead: string, cmdline: string, cursorPos: number):

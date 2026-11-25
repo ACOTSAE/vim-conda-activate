@@ -26,3 +26,7 @@ if !exists(":CondaActivate")
     command -nargs=? -complete=customlist,condafuncs.CondaComplete
                 \ CondaActivate call <SID>condafuncs.CondaActivate(<f-args>)
 endif
+
+if !exists(":CondaDeactivate")
+    command -nargs=0 CondaDeactivate call <SID>condafuncs.CondaDeactivate()
+endif
