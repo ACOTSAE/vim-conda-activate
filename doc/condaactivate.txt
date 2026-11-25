@@ -27,26 +27,23 @@ Conda-activate pick the inheritance of
 in a Vim9 fashion.  It further accommodates changes that conda experienced
 throughout the years.
 
-This plugin set various environment variables such as $CONDA_DEFAULT_ENV,
-$CONDA_PREFIX and $PATH, set the internal sys.path and set the
-'pythonthreehome' and 'pythonthreedll' options.
+This plugin sets various environment variables such as $CONDA_DEFAULT_ENV,
+$CONDA_PREFIX and $PATH.
+Vim's Python interface is not used.
+
+Vim may be started from any shell, including the base environment or one
+where conda has not been initialized; in that case the plugin starts on
+the *base* environment.
 
 ** Note **
-The plugin appear to work on MacOSX Ventura, but has not been tested on
-Linux and  Windows.
-If someone want to give it a shot on such OS:s I would be grateful.
+This fork is tested on Linux with Conda 24.11.3 and Vim 9.2.
+MacOSX and Windows are untested.
 
 ==============================================================================
 REQUIREMENTS                                     *CondaActivateRequirements*
 
 You need conda and Vim9.
-
-You also need your 'python' set properly.
-Be sure that you get 1 in response to  :echo has('python3') and
-Hello World in response to :python3 print('Hello world').
-
-If it won't happen, then you have to set the 'pythonthreedll' and
-'pythonthreehome' options in Vim.
+Vim's Python interface is not used.
 
 ==============================================================================
 USAGE                                                  *CondaActivateUsage*
@@ -83,10 +80,7 @@ You should maintain this plugin in two steps:
    changes. Observe how they change in response to a change of virtual
    environment and adjust the vim scripts accordingly.
 
-2. :echo py3eval(sys.path). Again, see how this changes when you switch
-   virtual environment and adapt the scripts.
-
-3. The trickiest is with Windows because the folder structure is fairly
+2. The trickiest is with Windows because the folder structure is fairly
    different than in MacOSX and Linux.
 
 Anyway, feel free to send a PR if have any improvement ideas.

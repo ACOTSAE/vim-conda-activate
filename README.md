@@ -20,8 +20,10 @@ throughout the years.
 `$CONDA_DEFAULT_ENV`,
  `$CONDA_PREFIX`, `$PATH`, etc.
 
-This plugin has been tested on **Conda 23.3.1** and it work-ish on such a release.
-Work-ish means that there could be some use-cases where it performs poorly.
+This fork of [ubaldot/vim-conda-activate](https://github.com/ubaldot/vim-conda-activate)
+is tested on **Linux** with **Conda 24.11.3** and **Vim 9.2**.
+The original plugin was tested on Conda 23.3.1 only; the Windows code path
+is still untested.
 
 
 ## Requirements
