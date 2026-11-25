@@ -29,6 +29,7 @@ export def SetEnvVariablesWin(env: string, prefix: string)
 
     $CONDA_DEFAULT_ENV = env
     $CONDA_PROMPT_MODIFIER = $"({env})"
+    $CONDA_PREFIX = prefix
 
     # Remove old paths
     var path_lst = split($PATH, ';')
@@ -100,6 +101,7 @@ export def SetEnvVariables(env: string, prefix: string)
 
     $CONDA_DEFAULT_ENV = env
     $CONDA_PROMPT_MODIFIER = $"({env})"
+    $CONDA_PREFIX = prefix
 
     # Remove old path (g:conda_current_prefix)
     var path_lst = split($PATH, ':')
@@ -121,34 +123,6 @@ export def SetEnvVariables(env: string, prefix: string)
     $PATH = join(path_lst, ':')
     $CONDA_PYTHON_EXE = prefix .. "/bin/python"
 
-
-    # 2) Set Vim options -----------------------------------
-    # var py_ver_dot = system('python --version')
-    var py_ver_dot = system($CONDA_PYTHON_EXE .. ' --version')
-                \->matchstr('\d\+.\d\+') # e.g. 3.11
-    var py_ver_nodot = substitute(py_ver_dot, '\.', '', 'g') # e.g.  311
-    &pythonthreehome =  prefix
-    &pythonthreedll = prefix .. $"/lib/libpython{py_ver_dot}.dylib"
-
-
-    # 3) Set internal sys.path -----------------------------------
-    # Paths to remove
-    #
-    g:python_sys_path = py3eval('sys.path')
-    g:python_sys_path_cleaned = g:python_sys_path
-                \->filter('stridx(v:val, g:conda_current_prefix) != 0')
-
-    # Paths to add
-    var path1 = prefix .. $"/lib/python{py_ver_nodot}.zip"
-    var path2 = prefix .. $"/lib/python{py_ver_dot}"
-    var path3 = prefix .. $"/lib/python{py_ver_dot}/lib-dynload"
-    var path4 = prefix .. $"/lib/python{py_ver_dot}/site-packages"
-    var paths = [path1, path2, path3, path4]
-    g:python_sys_path = paths + g:python_sys_path_cleaned
-
-    # Add paths
-    python3 import vim
-    python3 sys.path = vim.eval("g:python_sys_path")
 
     # Refresh variables
     g:conda_current_prefix = prefix
