@@ -2,7 +2,6 @@ vim9script noclear
 
 # Activate conda environments inside Vim.
 # Maintainer:	Ubaldo Tiberi
-# GetLatestVimScripts: 6074 1 :AutoInstall: outline.vim
 # License: BSD3-Clause.
 
 if !has('vim9script') ||  v:version < 900
