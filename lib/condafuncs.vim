@@ -135,7 +135,7 @@ def CondaActivateUser(env: string)
     var prefixes = {}
     var key = ""
     for prefix in g:conda_prefixes
-        key = fnamemodify(prefix, ":t")
+        key = prefix ==# g:conda_base_prefix ? "base" : fnamemodify(prefix, ":t")
         prefixes[key] = prefix
     endfor
 
@@ -151,7 +151,8 @@ enddef
 def CondaActivatePopupCallback(id: number, env_idx: number)
     # Callback of the popup menu.
     var target_prefix = g:conda_prefixes[env_idx - 1]
-    var target_env = fnamemodify(target_prefix, ":t")
+    var target_env = target_prefix ==# g:conda_base_prefix
+                \ ? "base" : fnamemodify(target_prefix, ":t")
     if has('win32')
         SetEnvVariablesWin(target_env, target_prefix)
     else

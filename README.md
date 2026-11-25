@@ -18,10 +18,7 @@ throughout the years.
 
 *Conda-activate* sets various environment variables such as
 `$CONDA_DEFAULT_ENV`,
- `$CONDA_PREFIX`, `$PATH`, etc., and set the
-`pythonthreehome` and `pythonthreedll` options.
-
-The internal `sys.path` used by Vim is also set.
+ `$CONDA_PREFIX`, `$PATH`, etc.
 
 This plugin has been tested on **Conda 23.3.1** and it work-ish on such a release.
 Work-ish means that there could be some use-cases where it performs poorly.
@@ -29,38 +26,13 @@ Work-ish means that there could be some use-cases where it performs poorly.
 
 ## Requirements
 You need *conda* and *Vim9*.<br>
+Vim's Python interface is not used.
 
-You also need  your `python` environment set properly.
-Be sure that you get `1` in response to  `:echo has('python3')` and
- `Hello World` in response to `:python3 print('Hello World')`.<br><br>
-
-<!-- If it won't happen, then you have to set the `pythonthreedll` and -->
-<!-- `pythonthreehome` options in Vim. -->
-<!-- See `:h pythonthreedll` and `:h pythonthreehome`.<br><br> -->
-
-
-> [!CAUTION]
-> Vim shall be started from an activated virtual environment.
-> Don't start Vim from the *base* environment or from a shell where `conda`
-> has not been initialized!
-> To be safe, you may consider to add the following
-> in your *.basrc/.zshrc/whatever*:
->```
->conda activate myenv
->```
-> or to create a `.bat` file with something like the following content:
->```
->@echo off
->call C:\Users\yourname\Miniconda3\condabin\activate.bat C:\Users\yourname\Miniconda3\envs\myenv
->gvim
->```
->
-> if you are a Windows user.
-> For such users, names like `Miniconda3`, `Anaconda`, etc. in the
-> list of available virtual environments represent the `base` environment.
->
-> Make sure that the version of Python installed in the virtual environment you use to start Vim
-> matches the version of Python used to compile Vim.
+> [!NOTE]
+> Vim may be started from any shell, including the *base* environment or one
+> where `conda` has not been initialized. In that case the plugin starts on
+> the `base` environment, which is also listed as `base` by
+> `:CondaActivate`.
 
 
 ## Usage
