@@ -1,5 +1,145 @@
 vim9script
 
+# ---------------------------------------------------------------
+# Lazy initialization.  conda itself is only invoked when the
+# environment lists on disk cannot provide the answer.
+# ---------------------------------------------------------------
+
+def EnvName(prefix: string): string
+    return prefix ==# g:conda_base_prefix ? "base" : fnamemodify(prefix, ":t")
+enddef
+
+def BasePrefix(): string
+    if $CONDA_EXE !=# ''
+        var dir = fnamemodify(fnamemodify($CONDA_EXE, ":h"), ":h")
+        if isdirectory(dir)
+            return dir
+        endif
+    endif
+    return ""
+enddef
+
+def EnvsPathDirs(): list<string>
+    if $CONDA_ENVS_PATH ==# ''
+        return []
+    endif
+    return split($CONDA_ENVS_PATH, has('win32') ? ';' : ':')
+                \->filter((_, d) => d !=# '')
+                \->mapnew((_, d) => expand(d))
+enddef
+
+def CondaRcFiles(base: string): list<string>
+    return [$CONDARC, expand("~/.condarc"), expand("~/.config/conda/.condarc"),
+                \ base .. "/.condarc"]
+enddef
+
+def EnvDirsFromCondaRc(base: string): list<string>
+    var dirs: list<string> = []
+    for file in CondaRcFiles(base)
+        if file ==# '' || !filereadable(file)
+            continue
+        endif
+        var in_block = false
+        for line in readfile(file)
+            if line =~# '^\s*envs_dirs\s*:'
+                in_block = true
+            elseif !in_block || line =~# '^\s*$' || line =~# '^\s*#'
+                continue
+            elseif line =~# '^\s*-\s*'
+                var dir = substitute(line, '^\s*-\s*', '', '')
+                dir = substitute(dir, '\s*#.*$', '', '')
+                dir = substitute(dir, '^["'']', '', '')
+                dir = substitute(dir, '["'']$', '', '')
+                dir = substitute(dir, '\s*$', '', '')
+                add(dirs, expand(dir))
+            elseif line =~# '^\S'
+                break
+            endif
+        endfor
+    endfor
+    return dirs
+enddef
+
+def EnvsDirs(base: string): list<string>
+    var dirs: list<string> = has('win32')
+                \ ? [base .. "\\envs", expand("~/.conda/envs")]
+                \ : [base .. "/envs", expand("~/.conda/envs"),
+                \    expand("~/.local/share/conda/envs")]
+    return dirs + EnvsPathDirs() + EnvDirsFromCondaRc(base)
+enddef
+
+def PrefixesFromFiles(base: string): list<string>
+    var listed: list<string> = []
+    var registry = expand("~/.conda/environments.txt")
+    if filereadable(registry)
+        listed = readfile(registry)
+    endif
+    for dir in EnvsDirs(base)
+        if isdirectory(dir)
+            listed += glob(dir .. "/*", 1, 1)
+        endif
+    endfor
+
+    var prefixes: list<string> = [base]
+    var seen: dict<number> = {}
+    seen[base] = 1
+    for entry in listed
+        var prefix = substitute(entry, '[/\\]\+$', '', '')
+        if prefix !=# '' && !has_key(seen, prefix) && isdirectory(prefix)
+            seen[prefix] = 1
+            add(prefixes, prefix)
+        endif
+    endfor
+    return prefixes
+enddef
+
+def SetCurrentEnv()
+    if !exists('g:conda_current_env')
+        g:conda_current_env = $CONDA_DEFAULT_ENV ==# '' ? "base" : $CONDA_DEFAULT_ENV
+    endif
+    if !exists('g:conda_current_prefix')
+        if $CONDA_PREFIX !=# ''
+            g:conda_current_prefix = $CONDA_PREFIX
+        elseif g:conda_current_env ==# "base"
+            g:conda_current_prefix = g:conda_base_prefix
+        elseif has('win32')
+            g:conda_current_prefix = g:conda_base_prefix .. "\\envs\\" .. g:conda_current_env
+        else
+            g:conda_current_prefix = g:conda_base_prefix .. "/envs/" .. g:conda_current_env
+        endif
+    endif
+enddef
+
+def InitFromConda()
+    g:conda_info = json_decode(system('conda info --json'))
+    g:conda_info_from_conda = true
+    g:conda_base_prefix = g:conda_info["conda_prefix"]
+    g:conda_prefixes = g:conda_info["envs"]
+    g:conda_envs = g:conda_prefixes->mapnew((_, p) => EnvName(p))
+    SetCurrentEnv()
+enddef
+
+def Init()
+    if exists('g:conda_base_prefix') && exists('g:conda_envs')
+        return
+    endif
+    var base = BasePrefix()
+    if base ==# ''
+        # Without a base prefix the PATH cannot be maintained; ask conda.
+        InitFromConda()
+        return
+    endif
+    # Synthesized from the files: good enough for listing and completion,
+    # not a guarantee that the environments are usable.
+    var prefixes = PrefixesFromFiles(base)
+    g:conda_info = {"conda_prefix": base, "envs": prefixes}
+    g:conda_base_prefix = base
+    g:conda_prefixes = prefixes
+    g:conda_envs = prefixes->mapnew((_, p) => EnvName(p))
+    SetCurrentEnv()
+enddef
+
+
 export def SetEnvVariablesWin(env: string, prefix: string)
     # This should be the only function of the plugin that kinda depends on the
     # OS
@@ -131,15 +271,23 @@ export def SetEnvVariables(env: string, prefix: string)
     endif
 enddef
 
-def CondaActivateUser(env: string)
-    var prefixes = {}
-    var key = ""
+def PrefixMap(): dict<string>
+    var prefixes: dict<string> = {}
     for prefix in g:conda_prefixes
-        key = prefix ==# g:conda_base_prefix ? "base" : fnamemodify(prefix, ":t")
-        prefixes[key] = prefix
+        prefixes[EnvName(prefix)] = prefix
     endfor
+    return prefixes
+enddef
 
-    if index(keys(prefixes), env) == -1
+def CondaActivateUser(env: string)
+    var prefixes = PrefixMap()
+    if !has_key(prefixes, env) && !exists('g:conda_info_from_conda')
+        # The file based guess was wrong; let conda settle it, once.
+        InitFromConda()
+        prefixes = PrefixMap()
+    endif
+
+    if !has_key(prefixes, env)
         echo $"{env} environment not found."
     elseif has('win32')
         SetEnvVariablesWin(env, prefixes[env])
@@ -151,8 +299,7 @@ enddef
 def CondaActivatePopupCallback(id: number, env_idx: number)
     # Callback of the popup menu.
     var target_prefix = g:conda_prefixes[env_idx - 1]
-    var target_env = target_prefix ==# g:conda_base_prefix
-                \ ? "base" : fnamemodify(target_prefix, ":t")
+    var target_env = EnvName(target_prefix)
     if has('win32')
         SetEnvVariablesWin(target_env, target_prefix)
     else
@@ -172,6 +319,7 @@ enddef
 
 
 export def CondaActivate(...env: list<string>)
+    Init()
     if empty(env)
         CondaActivatePopup()
     else
@@ -182,5 +330,6 @@ enddef
 export def CondaComplete(arglead: string, cmdline: string, cursorPos: number):
             \ list<string>
     # This is used in "command -preview=..." in the plugin file.
+    Init()
     return g:conda_envs->filter((_, val) => val =~ $'^{arglead}')
 enddef

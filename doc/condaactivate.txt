@@ -31,9 +31,14 @@ This plugin sets various environment variables such as $CONDA_DEFAULT_ENV,
 $CONDA_PREFIX and $PATH.
 Vim's Python interface is not used.
 
-Vim may be started from any shell, including the base environment or one
-where conda has not been initialized; in that case the plugin starts on
-the *base* environment.
+The plugin does nothing at startup.  On first use the environment list is
+read from ~/.conda/environments.txt, the envs_dirs of .condarc and
+$CONDA_ENVS_PATH, and the usual envs directories, and g:conda_info is
+synthesized from it (an approximate list: entries are only
+checked for existence, not usability).  conda itself is only invoked when |:CondaActivate|
+cannot find the requested environment, or when $CONDA_EXE is unknown.  Vim may
+therefore be started from any shell, including the base environment or one
+where conda has not been initialized.
 
 ** Note **
 This fork is tested on Linux with Conda 24.11.3 and Vim 9.2.

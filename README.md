@@ -31,10 +31,15 @@ You need *conda* and *Vim9*.<br>
 Vim's Python interface is not used.
 
 > [!NOTE]
-> Vim may be started from any shell, including the *base* environment or one
-> where `conda` has not been initialized. In that case the plugin starts on
-> the `base` environment, which is also listed as `base` by
-> `:CondaActivate`.
+> The plugin does nothing at startup.  On first use the environment list is
+> read from `~/.conda/environments.txt`, the `envs_dirs` of `.condarc` and
+> `$CONDA_ENVS_PATH`, and the usual `envs` directories, and `g:conda_info` is
+> synthesized from it (an approximate list: entries are only checked for
+> existence, not usability).
+> `conda info --json` runs only when `:CondaActivate` cannot find the
+> requested environment, or when `$CONDA_EXE` is unknown.
+> Vim can therefore be started from any shell, including the *base*
+> environment or one where `conda` has not been initialized.
 
 
 ## Usage
