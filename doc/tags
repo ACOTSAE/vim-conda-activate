@@ -1,4 +1,5 @@
 :CondaActivate	condaactivate.txt	/*:CondaActivate*
+:CondaDeactivate	condaactivate.txt	/*:CondaDeactivate*
 CondaActivateContents	condaactivate.txt	/*CondaActivateContents*
 CondaActivateContributing	condaactivate.txt	/*CondaActivateContributing*
 CondaActivateCredits	condaactivate.txt	/*CondaActivateCredits*

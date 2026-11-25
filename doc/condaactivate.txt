@@ -53,11 +53,19 @@ Vim's Python interface is not used.
 ==============================================================================
 USAGE                                                  *CondaActivateUsage*
 
-This plugin has one command *:CondaActivate* that take one optional argument:
+                                                           *:CondaActivate*
 >
-    :CondaActivate # Show a popup menu
-    :CondaActivate myenv # Activate myenv without popup menu
+    :CondaActivate        # Show a popup menu
+    :CondaActivate myenv  # Activate myenv without popup menu
 <
+                                                         *:CondaDeactivate*
+>
+    :CondaDeactivate      # Leave the current environment
+<
+|:CondaDeactivate| behaves like conda deactivate: it pops back to the
+previous environment when environments were stacked, and otherwise leaves
+conda entirely (the CONDA_* variables are unset and $CONDA_SHLVL becomes 0).
+When no environment is active it does nothing.
 
                                                         *CondaEnvActivated*
 
